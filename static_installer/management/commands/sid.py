@@ -1,5 +1,6 @@
 import os
 import urllib2
+from urlparse import urlparse
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
@@ -24,10 +25,10 @@ class Command(BaseCommand):
             paths.append(dependency_path)
 
         for path in paths:
-            object = simplejson.loads(open(path, 'r').read())
+            json_obj = simplejson.loads(open(path, 'r').read())
 
-            for item in object:
-                install_dependencies(object.get(item, None), os.path.join(settings.STATIC_ROOT_DEFAULT, item))
+            for item in json_obj:
+                install_dependencies(json_obj.get(item, None), os.path.join(settings.STATIC_ROOT_DEFAULT, item))
 
 
 
@@ -35,26 +36,23 @@ def install_dependencies(dependencies, path):
 
     for item in dependencies:
         if type(dependencies).__name__ == 'dict':
-            dir = os.path.join(path, item)
-            if not os.path.exists(dir):
-                print "mkdir %s.." % (dir)
-                os.mkdir(dir)
+            folder = os.path.join(path, item)
+            if not os.path.exists(folder):
+                print "mkdir %s.." % (folder)
+                os.mkdir(folder)
 
             install_dependencies(dependencies[item], os.path.join(path, item))
         else:
-            #remotefile = urllib2.urlopen(item)
-
-            if item.find('#pack=') != -1:
-                filename = item.split('#pack=')[-1]
+            parsed_url = urlparse(item)
+            if parsed_url[5] and parsed_url[5].find('filename=') != -1:
+                filename = parsed_url[5].replace('filename=', '')
             else:
-                filename = item.split('/')[-1].split('#')[0].split('?')[0]
+                filename = parsed_url[2].split('/')[-1]
 
             print "downloading %s..." % item
 
-            remote_file = urllib2.urlopen(item).read()
+            remote_file = urllib2.urlopen(item)
             local_file = open(os.path.join(path, filename), 'w')
+            local_file.write(remote_file.read())
             local_file.close()
 
-
-    #print js
-    #print css
